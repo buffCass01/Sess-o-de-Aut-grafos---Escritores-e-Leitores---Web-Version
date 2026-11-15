@@ -10,7 +10,7 @@ Exemplo visual do problema dos leitores e escritores, feito com PySide6.
 - A musica original do evento toca em segundo plano; use **MÚSICA: LIGADA/DESLIGADA** para controlá-la. Efeitos originais acompanham cliques, chegada de fãs, consultas e autógrafos.
 - Ajuste **DURACAO DAS ACOES** para escolher o tempo de leitura e de escrita (2 a 30 segundos; inicia em 5 e 4 segundos, respectivamente). Os valores selecionados se aplicam a cada nova acao.
 
-Instale a dependencia com `python -m pip install -r requirements.txt`.
+Instale a dependencia com `python -m pip install -r PySide6`.
 
 A lista de autografos e o recurso compartilhado: os leitores consultam seu conteudo, e o autor o atualiza com acesso exclusivo. Os estados de espera do leitor e do fã da vez ficam destacados na tela. Os personagens caminham quando entram ou avancam na fila; o autor anima o braco enquanto assina; e cada consulta anima um leitor ate a lista e de volta. O quadro do cenario mostra as seis assinaturas mais recentes, enquanto a consulta registra a lista completa.
 
