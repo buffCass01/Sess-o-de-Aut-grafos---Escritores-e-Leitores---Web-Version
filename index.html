@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#211e39">
+  <title>Noite de autógrafos - Leitores e escritores</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="app.js" defer></script>
+</head>
+<body>
+  <main class="app">
+    <section class="event" aria-label="Evento de autógrafos">
+      <header class="heading">
+        <h1>NOITE DE AUTÓGRAFOS</h1>
+        <p>Leitores consultam juntos; o autor atualiza a lista com acesso exclusivo.</p>
+      </header>
+
+      <canvas id="scene" width="1260" height="480"
+        aria-label="Animação da livraria, fila de fãs, autor e lista compartilhada"></canvas>
+
+      <section id="event-state" class="event-state" aria-live="polite">
+        Evento aberto. Os fãs aguardam na fila.
+      </section>
+
+      <section class="log-panel" aria-label="Registro do evento">
+        <ol id="event-log" aria-live="polite"></ol>
+      </section>
+    </section>
+
+    <aside class="sidebar" aria-label="Controles do evento">
+      <section class="control-group">
+        <h2>DURAÇÃO DAS AÇÕES</h2>
+        <label for="reading-time">Consulta da lista:</label>
+        <div class="input-line">
+          <input id="reading-time" type="number" min="2" max="30" value="5">
+          <span>s</span>
+        </div>
+        <label for="writing-time">Autógrafo:</label>
+        <div class="input-line">
+          <input id="writing-time" type="number" min="2" max="30" value="4">
+          <span>s</span>
+        </div>
+      </section>
+
+      <section class="control-group">
+        <h2>CONTROLE DE LEITORES</h2>
+        <label for="reader-limit">Máximo simultâneo:</label>
+        <input id="reader-limit" type="number" min="1" max="3" value="2">
+        <button id="apply-limit" type="button">APLICAR LIMITE</button>
+        <button id="remove-limit" type="button">SEM LIMITE</button>
+        <button id="toggle-music" type="button" aria-pressed="true">MÚSICA: LIGADA</button>
+      </section>
+
+      <section class="control-group actions">
+        <h2>AÇÕES DO EVENTO</h2>
+        <button id="add-fan" type="button">ADICIONAR FÃ À FILA</button>
+        <button id="autograph" type="button">AUTOGRAFAR PRÓXIMO</button>
+        <button id="consult" type="button">CONSULTAR LISTA</button>
+      </section>
+    </aside>
+  </main>
+</body>
+</html>
