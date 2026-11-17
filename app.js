@@ -4,6 +4,7 @@ const canvas = document.querySelector("#scene");
 const ctx = canvas.getContext("2d");
 const eventState = document.querySelector("#event-state");
 const logList = document.querySelector("#event-log");
+const logPanel = document.querySelector(".log-panel");
 const autographButton = document.querySelector("#autograph");
 const musicButton = document.querySelector("#toggle-music");
 const readingTimeInput = document.querySelector("#reading-time");
@@ -12,6 +13,15 @@ const readerLimitInput = document.querySelector("#reader-limit");
 
 const scene = { width: 1260, height: 480 };
 const maxVisibleFans = 5;
+const terminalVisibleLines = 4;
+const authors = [
+  { name: "Gorender", label: "GORENDER", x: 675, appearance: 4, hairStyle: "balding", hairColor: "#514052" },
+  {
+    name: "Apolinário", label: "APOLINÁRIO", x: 755, appearance: 3,
+    hairStyle: "quiff", hairColor: "#c0c5c8", skinColor: "#f1d8c0", shirtColor: "#4b965f", scale: 0.78,
+  },
+];
+const terminalLines = [];
 const queue = [];
 const autographs = [];
 const fanCharacters = new Map();
@@ -21,9 +31,12 @@ const activeReaders = new Map();
 let nextFanId = 1;
 let nextReaderId = 1;
 let readerLimit = null;
+let terminalScrollTop = 0;
 let writerBusy = false;
 let writerWaiting = false;
 let writerActive = false;
+let nextAuthorIndex = 0;
+let signingAuthorIndex = 0;
 let signingFan = null;
 let audioContext = null;
 let musicEnabled = true;
@@ -37,7 +50,7 @@ let sceneState = {
   fanColor: "#f5c66a",
   reader: "LEITOR: LIVRE",
   readerColor: "#385d68",
-  writer: "ESCRITOR: LIVRE",
+  writer: "AUTORES: LIVRES",
   writerColor: "#9fe0a2",
 };
 
@@ -58,11 +71,32 @@ const melody = [
 const bassNotes = [130.81, 110, 87.31, 98];
 
 function log(message, error = false) {
+  const messageLines = message.match(/.{1,52}/g) || [""];
+  messageLines.forEach((line, index) => {
+    terminalLines.push({ text: `${index === 0 ? "> " : "  "}${line}`, error });
+  });
+  terminalScrollTop = Math.max(0, terminalLines.length - terminalVisibleLines);
   const entry = document.createElement("li");
   entry.textContent = message;
   if (error) entry.className = "error";
   logList.append(entry);
-  logList.scrollTop = logList.scrollHeight;
+  logPanel.scrollTop = logPanel.scrollHeight;
+}
+
+function getTerminalMaxScroll() {
+  return Math.max(0, terminalLines.length - terminalVisibleLines);
+}
+
+function syncTerminalScrollFromLogPanel() {
+  const logMaxScroll = logPanel.scrollHeight - logPanel.clientHeight;
+  const progress = logMaxScroll > 0 ? logPanel.scrollTop / logMaxScroll : 1;
+  terminalScrollTop = Math.round(progress * getTerminalMaxScroll());
+}
+
+function syncLogPanelScrollFromTerminal() {
+  const terminalMaxScroll = getTerminalMaxScroll();
+  const progress = terminalMaxScroll > 0 ? terminalScrollTop / terminalMaxScroll : 1;
+  logPanel.scrollTop = progress * Math.max(0, logPanel.scrollHeight - logPanel.clientHeight);
 }
 
 function setEventState(message) {
@@ -192,19 +226,42 @@ function pixelRow(y, start, end, color) {
 }
 
 function drawPerson(character, timestamp) {
-  const { x, y, appearance, role = "fa", pose = "parado", walking = false, name } = character;
+  const {
+    x, y, appearance, role = "fa", pose = "parado", walking = false,
+    name, hairStyle, scale = 1,
+  } = character;
   const frame = Math.floor(timestamp / 150) % 2;
   const palette = palettes[appearance % palettes.length];
-  const { pele, cabelo, camisa, detalhe, calca } = palette;
+  const { pele: paletteSkin, camisa: paletteShirt, detalhe, calca } = palette;
+  const pele = character.skinColor || paletteSkin;
+  const camisa = character.shirtColor || paletteShirt;
+  const cabelo = character.hairColor || palette.cabelo;
+  const hairstyle = hairStyle ?? appearance % 4;
   ctx.save();
-  ctx.translate(Math.round(x), Math.round(y));
+  ctx.translate(Math.round(x + 34 * (1 - scale)), Math.round(y + 88 * (1 - scale)));
+  ctx.scale(scale, scale);
   ctx.imageSmoothingEnabled = false;
 
-  for (const [row, start, end] of [[0, 6, 10], [1, 4, 12], [2, 3, 13], [3, 3, 13]]) {
-    pixelRow(row, start, end, cabelo);
+  if (hairstyle === "balding") {
+    for (const [row, start, end] of [[0, 6, 10], [1, 4, 12], [2, 3, 13], [3, 3, 13]]) {
+      pixelRow(row, start, end, pele);
+    }
+    pixelRow(1, 4, 5, cabelo);
+    pixelRow(1, 11, 12, cabelo);
+    pixelRow(2, 3, 5, cabelo);
+    pixelRow(2, 11, 13, cabelo);
+    pixelRow(3, 3, 5, cabelo);
+    pixelRow(3, 7, 9, cabelo);
+    pixelRow(3, 11, 13, cabelo);
+  } else {
+    for (const [row, start, end] of [[0, 6, 10], [1, 4, 12], [2, 3, 13], [3, 3, 13]]) {
+      pixelRow(row, start, end, cabelo);
+    }
   }
-  const hairstyle = appearance % 4;
-  if (hairstyle === 2) {
+  if (hairstyle === "quiff") {
+    pixelRow(-1, 8, 9, cabelo);
+    pixelRow(0, 7, 11, cabelo);
+  } else if (hairstyle === 2) {
     pixelRow(3, 13, 15, cabelo);
     pixelRow(4, 14, 15, cabelo);
     pixelRow(5, 14, 15, cabelo);
@@ -218,7 +275,7 @@ function drawPerson(character, timestamp) {
   for (let row = 4; row < 12; row += 1) pixelRow(row, 4, 12, pele);
   pixel(3, 7, pele);
   pixel(13, 7, pele);
-  if (hairstyle === 1 || hairstyle === 3) {
+  if (hairstyle === 1 || hairstyle === 3 || hairstyle === "balding") {
     for (let row = 4; row < 15; row += 1) {
       pixel(3, row, cabelo);
       pixel(13, row, cabelo);
@@ -237,9 +294,11 @@ function drawPerson(character, timestamp) {
   } else if (hairstyle === 2) {
     pixelRow(4, 5, 9, cabelo);
     pixelRow(5, 10, 12, cabelo);
-  } else {
+  } else if (hairstyle === 3) {
     pixelRow(4, 4, 10, cabelo);
     pixel(11, 5, cabelo);
+  } else if (hairstyle === "quiff") {
+    pixelRow(4, 8, 10, cabelo);
   }
   for (const eye of [6, 10]) {
     pixel(eye, 6, cabelo);
@@ -276,7 +335,7 @@ function drawPerson(character, timestamp) {
     pixelRow(21, 9, 13, palette.sapato);
     pixel(13, 15, pele);
     pixel(14, 15, pele);
-    const penY = 16 + frame;
+    const penY = pose === "autografando" ? 16 + frame : 16;
     pixel(15, penY, "#332b42");
     pixel(14, penY, detalhe);
   } else if (pose === "lendo") {
@@ -298,14 +357,17 @@ function drawPerson(character, timestamp) {
     pixelRow(22, 10 + rightLeg, 12 + rightLeg, palette.sapato);
   }
 
+  ctx.restore();
   if (name) {
+    ctx.save();
+    ctx.translate(Math.round(x), Math.round(y));
     ctx.fillStyle = "#fff0c2";
     ctx.font = "bold 12px Consolas, monospace";
     ctx.textAlign = "center";
     ctx.textBaseline = "alphabetic";
     ctx.fillText(name, 34, 111);
+    ctx.restore();
   }
-  ctx.restore();
 }
 
 function fillRect(x, y, width, height, color) {
@@ -334,6 +396,38 @@ function drawBackground() {
     fillRect(x + 8, 48, 8, 8, "#e98668");
   }
   drawText("LIVRARIA PIXEL - EVENTO DE LANCAMENTO", 405, 58, "#c7c5e8", 15);
+  ctx.save();
+  ctx.fillStyle = "#f5c66a";
+  ctx.font = "bold 8px Consolas, monospace";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "top";
+  ctx.fillText(
+    "Lançamento: Estruturas de Dados para Primatas e Sistemas Básicos: Hardware e Software, para Burrinhos",
+    630, 79,
+  );
+  ctx.restore();
+
+  fillRect(270, 96, 352, 104, "#11111c");
+  fillRect(278, 102, 336, 88, "#646875");
+  fillRect(284, 108, 324, 76, "#101b1e");
+  fillRect(284, 108, 324, 15, "#29434a");
+  drawText("TV DA LIVRARIA | TERMINAL DE ACOES", 290, 111, "#b8e4dc", 8);
+  terminalLines.slice(terminalScrollTop, terminalScrollTop + terminalVisibleLines).forEach((line, index) => {
+    drawText(line.text, 290, 127 + index * 13, line.error ? "#ff8b82" : "#9fe0a2", 8);
+  });
+  const terminalMaxScroll = getTerminalMaxScroll();
+  if (terminalMaxScroll > 0) {
+    const trackY = 126;
+    const trackHeight = 52;
+    const thumbHeight = Math.max(8, trackHeight * terminalVisibleLines / terminalLines.length);
+    const thumbY = trackY + (trackHeight - thumbHeight) * terminalScrollTop / terminalMaxScroll;
+    fillRect(600, trackY, 3, trackHeight, "#35484a");
+    fillRect(599, thumbY, 5, thumbHeight, "#9fe0a2");
+  }
+  fillRect(612, 137, 3, 3, "#e6a858");
+  fillRect(430, 200, 32, 7, "#646875");
+  fillRect(442, 207, 8, 12, "#646875");
+
   drawText("FILA DE FAS", 106, 175, "#a8d7e8");
   fillRect(90, 351, 455, 3, "#edbf61");
   for (const x of [180, 280, 380, 480]) {
@@ -343,7 +437,7 @@ function drawBackground() {
   const outsideQueue = Math.max(0, queue.length - maxVisibleFans);
   drawText(`FILA: ${queue.length}${outsideQueue ? `  (+${outsideQueue} aguardando)` : ""}`, 105, 192, "#fff0c2", 10);
   drawText(sceneState.fan, 105, 211, sceneState.fanColor, 13);
-  drawText("AUTOR", 695, 100, "#a8d7e8");
+  drawText("AUTORES", 700, 100, "#a8d7e8");
   fillRect(687, 205, 62, 84, "#76505a");
   fillRect(677, 201, 82, 10, "#e6a858");
   fillRect(695, 230, 10, 37, "#c78150");
@@ -366,8 +460,8 @@ function drawBackground() {
     drawText(`... ${earlier} autografos anteriores`, 921, 163, "#68586a", 11);
     row = 1;
   }
-  for (const name of displayedAutographs.slice(-6)) {
-    drawText(`OK  ${name}`, 921, 164 + row * 19, "#256044", 12);
+  for (const autograph of displayedAutographs.slice(-6)) {
+    drawText(`OK  ${autograph.fan} - ${autograph.author}`, 921, 164 + row * 19, "#256044", 12);
     row += 1;
   }
   drawText(sceneState.reader, 918, 293, sceneState.readerColor, 13);
@@ -381,11 +475,12 @@ function draw(timestamp) {
   drawBackground();
   for (const character of fanCharacters.values()) drawPerson(character, timestamp);
 
-  const author = {
-    x: 675, y: 164, appearance: 4, role: "autor",
-    pose: writerActive ? "autografando" : "parado",
-  };
-  drawPerson(author, timestamp);
+  authors.forEach((author, index) => {
+    drawPerson({
+      ...author, y: 164, role: "autor", name: author.label,
+      pose: writerActive && signingAuthorIndex === index ? "autografando" : "parado",
+    }, timestamp);
+  });
 
   for (const reader of readers.values()) {
     const elapsed = timestamp - reader.startedAt;
@@ -559,7 +654,9 @@ function startReader(request) {
     } else {
       setScenarioState("reader", "LEITOR: CONSULTA CONCLUÍDA", "#385d68");
     }
-    const content = reader.snapshot.length ? reader.snapshot.join(", ") : "a lista ainda está vazia";
+    const content = reader.snapshot.length
+      ? reader.snapshot.map(({ fan, author }) => `${author} autografou para ${fan}`).join(", ")
+      : "a lista ainda está vazia";
     log(`Consulta concluída: ${content}.`);
     updateOverallState();
     processLockQueue();
@@ -569,13 +666,15 @@ function startReader(request) {
 function autographNext() {
   if (writerBusy || queue.length === 0) return;
   const fan = queue[0];
+  signingAuthorIndex = nextAuthorIndex;
+  const author = authors[signingAuthorIndex];
   writerBusy = true;
   writerWaiting = true;
   autographButton.disabled = true;
   setScenarioState("fan", `${fan.name.toUpperCase()}: AGUARDANDO PARA SER AUTOGRAFADO`, "#f5c66a");
-  setScenarioState("writer", "ESCRITOR: AGUARDANDO", "#f5c66a");
-  setEventState(`O autor aguarda para autografar para ${fan.name}.`);
-  log(`O autor aguarda acesso exclusivo para atender ${fan.name}.`);
+  setScenarioState("writer", `${author.label}: AGUARDANDO`, "#f5c66a");
+  setEventState(`${author.name} aguarda para autografar para ${fan.name}.`);
+  log(`${author.name} aguarda acesso exclusivo para atender ${fan.name}.`);
   processLockQueue();
 }
 
@@ -586,6 +685,7 @@ function startWriter() {
     writerBusy = false;
     return;
   }
+  const author = authors[signingAuthorIndex];
   writerWaiting = false;
   writerActive = true;
   signingFan = fan.id;
@@ -600,12 +700,12 @@ function startWriter() {
     character.walking = false;
   });
   setScenarioState("fan", `${fan.name.toUpperCase()}: SENDO AUTOGRAFADO`, "#f17b61");
-  setScenarioState("writer", "ESCRITOR: AUTOGRAFANDO", "#f17b61");
-  log(`O autor está autografando para ${fan.name}.`);
+  setScenarioState("writer", `${author.label}: AUTOGRAFANDO`, "#f17b61");
+  log(`${author.name} está autografando para ${fan.name}.`);
   if (waitingReaders.length) {
     setEventState(`LEITOR ${waitingReaders[0].id}: AGUARDANDO ACESSO À LISTA`);
   } else {
-    setEventState(`O autor está autografando para ${fan.name}.`);
+    setEventState(`${author.name} está autografando para ${fan.name}.`);
   }
   const duration = clampedInput(writingTimeInput, 2, 30);
   window.setTimeout(() => finishWriter(fan), duration * 1000);
@@ -617,20 +717,22 @@ function finishWriter(fan) {
   }
   if (writingTimer) window.clearInterval(writingTimer);
   writingTimer = null;
+  const author = authors[signingAuthorIndex];
   queue.shift();
-  autographs.push(fan.name);
+  autographs.push({ fan: fan.name, author: author.name });
   displayedAutographs = autographs.slice();
   writerActive = false;
   writerBusy = false;
+  nextAuthorIndex = (signingAuthorIndex + 1) % authors.length;
   signingFan = null;
-  setScenarioState("writer", "ESCRITOR: LIVRE", "#9fe0a2");
+  setScenarioState("writer", "AUTORES: LIVRES", "#9fe0a2");
   syncQueue(true, fan.id);
   if (queue.length) {
     setScenarioState("fan", `${queue[0].name.toUpperCase()}: AGUARDANDO PARA SER AUTOGRAFADO`, "#f5c66a");
   } else {
     setScenarioState("fan", "FILA VAZIA: ADICIONE UM FÃ", "#c7c5e8");
   }
-  log(`${fan.name} recebeu o autógrafo. Total: ${autographs.length}.`);
+  log(`${author.name} autografou para ${fan.name}. Total: ${autographs.length}.`);
   autographButton.disabled = queue.length === 0;
   updateOverallState();
   processLockQueue();
@@ -701,6 +803,17 @@ musicButton.addEventListener("click", () => {
 document.addEventListener("pointerdown", setupAudio, { once: true });
 document.addEventListener("keydown", setupAudio, { once: true });
 window.addEventListener("resize", resizeCanvas);
+logPanel.addEventListener("scroll", syncTerminalScrollFromLogPanel);
+canvas.addEventListener("wheel", (event) => {
+  const bounds = canvas.getBoundingClientRect();
+  const x = (event.clientX - bounds.left) * scene.width / bounds.width;
+  const y = (event.clientY - bounds.top) * scene.height / bounds.height;
+  if (x < 284 || x >= 608 || y < 123 || y >= 184) return;
+  event.preventDefault();
+  const maxScroll = getTerminalMaxScroll();
+  terminalScrollTop = Math.max(0, Math.min(maxScroll, terminalScrollTop + Math.sign(event.deltaY)));
+  syncLogPanelScrollFromTerminal();
+}, { passive: false });
 
 for (let index = 0; index < 4; index += 1) addFan(false, false);
 log("Evento iniciado: quatro fãs aguardam o autógrafo.");
