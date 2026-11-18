@@ -10,7 +10,7 @@ Versão para navegador da simulação de leitores e escritores da aplicação Py
 
 - Clique no link hospedado no GitHub Pages.
 
-[Hospedagem no GitHub Pages](https://buffcass01.github.io/Sess-o-de-Aut-grafos---Escritores-e-Leitores---Web-Version/)
+- [Hospedagem no GitHub Pages](https://buffcass01.github.io/Sess-o-de-Aut-grafos---Escritores-e-Leitores---Web-Version/)
 
 ## Recursos
 
