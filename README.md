@@ -5,8 +5,11 @@ Versão para navegador da simulação de leitores e escritores da aplicação Py
 ## Como abrir
 
 - Abra `index.html` diretamente em um navegador moderno; ou
+
 - hospede esta pasta em qualquer servidor estático, servindo `index.html` como página inicial; ou
+
 -Clique no link hospedado no GitHub Pages.
+
 [Hospedagem no GitHub Pages](https://buffcass01.github.io/Sess-o-de-Aut-grafos---Escritores-e-Leitores---Web-Version/)
 
 ## Recursos
