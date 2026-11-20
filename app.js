@@ -31,6 +31,7 @@ const activeReaders = new Map();
 let nextFanId = 1;
 let nextReaderId = 1;
 let readerLimit = null;
+let readerPriority = false;
 let terminalScrollTop = 0;
 let writerBusy = false;
 let writerWaiting = false;
@@ -594,12 +595,16 @@ function addFan(animate = true, shouldLog = true) {
 
 function applyReaderLimit() {
   readerLimit = clampedInput(readerLimitInput, 1, 3);
+  readerPriority = false;
   log(`Limite aplicado: até ${readerLimit} leitor(es) simultâneo(s).`);
+  processLockQueue();
 }
 
 function removeReaderLimit() {
   readerLimit = null;
-  log("Limite removido: consultas sem limite configurado.");
+  readerPriority = true;
+  log("Limite removido: consultas sem limite, com prioridade para leitores.");
+  processLockQueue();
 }
 
 function requestReader() {
@@ -620,11 +625,23 @@ function requestReader() {
 
 function processLockQueue() {
   if (writerActive) return;
+  if (readerPriority) {
+    if (waitingReaders.length > 0) {
+      while (waitingReaders.length > 0) startReader(waitingReaders.shift());
+      return;
+    }
+    if (activeReaders.size > 0) return;
+  }
   if (writerWaiting) {
     if (activeReaders.size === 0) startWriter();
     return;
   }
-  while (waitingReaders.length > 0) startReader(waitingReaders.shift());
+  while (
+    waitingReaders.length > 0
+    && (readerLimit === null || activeReaders.size < readerLimit)
+  ) {
+    startReader(waitingReaders.shift());
+  }
 }
 
 function startReader(request) {
